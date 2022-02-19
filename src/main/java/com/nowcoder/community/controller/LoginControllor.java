@@ -114,6 +114,8 @@ public class LoginControllor implements CommunityConstant {
             model.addAttribute("codeMsg", "验证码不正确！");
             return "/site/login";
         }
+        System.out.println(password);
+
         // 检查账号密码
         int expiredSeconds = rememberme ? REMEMBER_EXPERED_SECONDS : DEFAULT_EXPERED_SECONDS;
         System.out.println(expiredSeconds);

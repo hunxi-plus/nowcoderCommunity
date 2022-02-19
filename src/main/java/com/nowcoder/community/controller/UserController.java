@@ -4,6 +4,7 @@ import com.nowcoder.community.entity.User;
 import com.nowcoder.community.service.UserService;
 import com.nowcoder.community.util.CommunityUtil;
 import com.nowcoder.community.util.HostHolder;
+import com.sun.org.apache.xpath.internal.operations.Mod;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,6 +22,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Map;
 
 @Controller
 @RequestMapping("/user")
@@ -98,6 +100,27 @@ public class UserController {
             }
         } catch (IOException e) {
             logger.error("读取头像失败：" + e.getMessage());
+        }
+    }
+
+    @RequestMapping(path = "/updatePassword", method = RequestMethod.POST)
+    public String updatePassword(String password, String newPassword1, String newPassword2, Model model){
+        // 检查两次输入的密码是否正确
+        if (StringUtils.isBlank(newPassword1)||StringUtils.isBlank(newPassword2)||!newPassword1.equals(newPassword2)){
+            model.addAttribute("newPasswordMsg", "两次密码不同");
+            return "/site/setting";
+        }
+
+        User user = hostHolder.getUser();
+        System.out.println(user.getPassword());
+        Map<String, Object> map = userService.updatePassword(user.getId(), password, newPassword1);
+        if (map==null || map.isEmpty()){
+            model.addAttribute("updatePasswordMsg", "密码重置成功！");
+            return "redirect:/index";
+        }else {
+            model.addAttribute("passwordMsg", map.get("passwordMsg"));
+            model.addAttribute("newPasswordMsg", map.get("newPasswordMsg"));
+            return "/site/setting";
         }
     }
 
