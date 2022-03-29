@@ -1,8 +1,11 @@
 package com.nowcoder.community.controller;
 
+import com.nowcoder.community.annotation.LoginRequired;
 import com.nowcoder.community.entity.User;
+import com.nowcoder.community.service.FollowService;
 import com.nowcoder.community.service.LikeService;
 import com.nowcoder.community.service.UserService;
+import com.nowcoder.community.util.CommunityConstant;
 import com.nowcoder.community.util.CommunityUtil;
 import com.nowcoder.community.util.HostHolder;
 import com.sun.org.apache.xpath.internal.operations.Mod;
@@ -27,7 +30,7 @@ import java.util.Map;
 
 @Controller
 @RequestMapping("/user")
-public class UserController {
+public class UserController implements CommunityConstant {
     private static final Logger logger = LoggerFactory.getLogger(UserController.class);
 
     @Value("${community.path.upload}")
@@ -48,20 +51,25 @@ public class UserController {
     @Autowired
     private LikeService likeService;
 
+    @Autowired
+    private FollowService followService;
+
+    @LoginRequired
     @RequestMapping(path = "/setting", method = RequestMethod.GET)
-    public String getSettingPage(){
+    public String getSettingPage() {
         return "/site/setting";
     }
 
+    @LoginRequired
     @RequestMapping(path = "/upload", method = RequestMethod.POST)
-    public String uploadHeader(MultipartFile headerImage, Model model){
-        if(headerImage==null){
+    public String uploadHeader(MultipartFile headerImage, Model model) {
+        if (headerImage == null) {
             model.addAttribute("error", "您还没有选择图片");
             return "/site/setting";
         }
         String fileName = headerImage.getOriginalFilename();
         String suffix = fileName.substring(fileName.lastIndexOf("."));
-        if (StringUtils.isBlank(suffix)){
+        if (StringUtils.isBlank(suffix)) {
             model.addAttribute("error", "文件格式不正确");
             return "/site/setting";
         }
@@ -86,7 +94,7 @@ public class UserController {
     }
 
     @RequestMapping(path = "/header/{fileName}", method = RequestMethod.GET)
-    public void getHeader(@PathVariable("fileName") String fileName, HttpServletResponse response){
+    public void getHeader(@PathVariable("fileName") String fileName, HttpServletResponse response) {
         // 服务器存放路径
         fileName = uploadPath + "/" + fileName;
         // 解析文件后缀
@@ -96,10 +104,10 @@ public class UserController {
         try (
                 FileInputStream fis = new FileInputStream(fileName);
                 OutputStream os = response.getOutputStream();
-        ){
+        ) {
             byte[] buffer = new byte[1024];
             int b = 0;
-            while ((b=fis.read(buffer))!=-1){
+            while ((b = fis.read(buffer)) != -1) {
                 os.write(buffer, 0, b);
             }
         } catch (IOException e) {
@@ -108,9 +116,9 @@ public class UserController {
     }
 
     @RequestMapping(path = "/updatePassword", method = RequestMethod.POST)
-    public String updatePassword(String password, String newPassword1, String newPassword2, Model model){
+    public String updatePassword(String password, String newPassword1, String newPassword2, Model model) {
         // 检查两次输入的密码是否正确
-        if (StringUtils.isBlank(newPassword1)||StringUtils.isBlank(newPassword2)||!newPassword1.equals(newPassword2)){
+        if (StringUtils.isBlank(newPassword1) || StringUtils.isBlank(newPassword2) || !newPassword1.equals(newPassword2)) {
             model.addAttribute("newPasswordMsg", "两次密码不同");
             return "/site/setting";
         }
@@ -118,10 +126,10 @@ public class UserController {
         User user = hostHolder.getUser();
         System.out.println(user.getPassword());
         Map<String, Object> map = userService.updatePassword(user.getId(), password, newPassword1);
-        if (map==null || map.isEmpty()){
+        if (map == null || map.isEmpty()) {
             model.addAttribute("updatePasswordMsg", "密码重置成功！");
             return "redirect:/index";
-        }else {
+        } else {
             model.addAttribute("passwordMsg", map.get("passwordMsg"));
             model.addAttribute("newPasswordMsg", map.get("newPasswordMsg"));
             return "/site/setting";
@@ -130,17 +138,30 @@ public class UserController {
 
     //个人主页
     @RequestMapping(path = "/profile/{userId}", method = RequestMethod.GET)
-    public String getProfilePage(@PathVariable("userId") int userId, Model model){
+    public String getProfilePage(@PathVariable("userId") int userId, Model model) {
         User user = userService.findUserById(userId);
-        if(user==null){
+        if (user == null) {
             throw new RuntimeException("该用户不存在！");
         }
 
         // 用户
         model.addAttribute("user", user);
-        //点赞数量
+        // 点赞数量
         int likeCount = likeService.findUserLikeCount(userId);
         model.addAttribute("likeCount", likeCount);
+
+        // 关注数量
+        long followeeCount = followService.findFolloweeCount(userId, ENTITY_TYPE_USER);
+        model.addAttribute("followeeCount", followeeCount);
+        // 粉丝数量
+        long followerCount = followService.findFollowerCount(ENTITY_TYPE_USER, userId);
+        model.addAttribute("followerCount", followerCount);
+        // 是否已关注
+        boolean hasFollowed = false;
+        if(hostHolder.getUser()!=null){
+            hasFollowed = followService.hasFollowed(hostHolder.getUser().getId(), ENTITY_TYPE_USER, userId);
+        }
+        model.addAttribute("hasFollowed", hasFollowed);
 
         return "/site/profile";
 
